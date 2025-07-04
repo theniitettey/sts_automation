@@ -72,8 +72,8 @@ We believe in the power of community collaboration! Your contributions can help 
   <tr>
     <td align="center">
       <a href="https://github.com/theniitettey">
-        <img src="https://github.com/michaelperryjnr.png" width="100px;" alt="Michael Perry Jr." style="border-radius:50%"/><br />
-        <sub><b>Michael Perry Jr.</b></sub>
+        <img src="https://github.com/theniitettey.png" width="100px;" alt="Michael Perry Jr." style="border-radius:50%"/><br />
+        <sub><b>Michael Perry</b></sub>
       </a>
     </td>
     <td align="center">
