@@ -82,6 +82,12 @@ We believe in the power of community collaboration! Your contributions can help 
         <sub><b>Bundana</b></sub>
       </a>
     </td>
+    <td align="center">
+      <a href="https://github.com/donkorBN">
+        <img src="https://github.com/donkorBN.png" width="100px;" alt="Donkor" style="border-radius:50%"/><br />
+        <sub><b>Donkor</b></sub>
+      </a>
+    </td>
   </tr>
 </table>
 
