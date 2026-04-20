@@ -20,6 +20,7 @@ import argparse
 import datetime
 import os
 import random
+import json
 from collections import defaultdict, namedtuple
 from pathlib import Path
 
@@ -63,9 +64,40 @@ Q_STYLE = QStyle([
 ])
 
 GITHUB_GRAPHQL_URL = "https://api.github.com/graphql"
+STREAK_CONFIG_FILE = Path(__file__).parent / ".streak_config.json"
 
 # Identity of the person running the script — collected interactively at startup.
 UserIdentity = namedtuple("UserIdentity", ["name", "username", "email"])
+
+
+# ── streak config helpers ──────────────────────────────────────────────────────
+
+def load_streak_config():
+    """Load saved streak config. Returns a dict (empty if file missing/corrupt)."""
+    try:
+        return json.loads(STREAK_CONFIG_FILE.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def save_streak_config(cfg: dict):
+    """Persist streak config to disk."""
+    STREAK_CONFIG_FILE.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    console.print(f"[dim]Config saved → {STREAK_CONFIG_FILE}[/]")
+
+
+def _auto_detect_repo():
+    """Return the root of the current git repo, or None if not in one."""
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        )
+        if out.returncode == 0:
+            return out.stdout.strip()
+    except FileNotFoundError:
+        pass
+    return None
 
 
 # ── git helpers ───────────────────────────────────────────────────────────────
@@ -929,7 +961,7 @@ def _prompt_date(label, default):
 
 def fill_streaks_flow(repo, me):
     """Interactive flow: fill days by date range or by GitHub calendar threshold.
-    After each pass, offers to run another pass for a different date range."""
+    Loads saved config as defaults; offers to save on completion."""
     console.print(Panel(
         "[bold]Fill Missing GitHub Contribution Days[/]\n\n"
         "[dim]Choose how to select which days to backfill:[/]\n"
@@ -941,13 +973,29 @@ def fill_streaks_flow(repo, me):
     ))
     console.print()
 
+    cfg = load_streak_config()
+    if cfg:
+        console.print(f"[dim]Loaded saved config from {STREAK_CONFIG_FILE}[/]\n")
+
+    # Repo: use passed-in path, fall back to auto-detect, then ask
+    if not repo:
+        repo = cfg.get("repo") or _auto_detect_repo()
+        if not repo:
+            repo = questionary.text("Path to git repo:", style=Q_STYLE).ask()
+            if not repo:
+                console.print("[dim]Aborted.[/]")
+                return
+    console.print(f"[dim]Repo : {repo}[/]\n")
+
     # 1. Fill mode
+    saved_mode = cfg.get("fill_mode", "range")
     fill_mode = questionary.select(
         "Fill strategy:",
         choices=[
             questionary.Choice("Range — backdate a commit on every day between two dates", value="range"),
             questionary.Choice("Threshold — fill days below a contribution count (uses GitHub calendar)", value="threshold"),
         ],
+        default=saved_mode,
         style=Q_STYLE,
     ).ask()
     if fill_mode is None:
@@ -960,15 +1008,27 @@ def fill_streaks_flow(repo, me):
     pct       = 100
 
     if fill_mode == "threshold":
-        username = questionary.text("GitHub username:", style=Q_STYLE).ask()
+        username = questionary.text(
+            "GitHub username:",
+            default=cfg.get("username", ""),
+            style=Q_STYLE,
+        ).ask()
         if not username:
             console.print("[dim]Aborted.[/]")
             return
 
+        saved_token = cfg.get("token", "")
         token = questionary.password(
-            "GitHub personal access token (needs 'read:user' scope):",
+            "GitHub personal access token (needs 'read:user' scope)"
+            + (" [saved — press Enter to reuse]:" if saved_token else ":"),
             style=Q_STYLE,
         ).ask()
+        if token is None:
+            console.print("[dim]Aborted.[/]")
+            return
+        if not token and saved_token:
+            token = saved_token  # reuse saved token
+
         if not token:
             console.print("[dim]Aborted.[/]")
             return
@@ -978,7 +1038,7 @@ def fill_streaks_flow(repo, me):
 
         threshold_str = questionary.text(
             "Fill days with how many contributions or fewer? (0 = only empty, 1 = empty + single-commit, etc.):",
-            default="1",
+            default=str(cfg.get("threshold", 1)),
             validate=validate_threshold,
             style=Q_STYLE,
         ).ask()
@@ -992,7 +1052,7 @@ def fill_streaks_flow(repo, me):
 
         pct_str = questionary.text(
             "Percentage of qualifying days to fill (1–100):",
-            default="100",
+            default=str(cfg.get("pct", 100)),
             validate=validate_pct,
             style=Q_STYLE,
         ).ask()
@@ -1019,6 +1079,11 @@ def fill_streaks_flow(repo, me):
     if first_date:
         default_from = max(default_from, first_date)
         console.print(f"[dim]Repo commit range: {first_date} → {last_date or today}[/]\n")
+    if cfg.get("from_date"):
+        try:
+            default_from = datetime.date.fromisoformat(cfg["from_date"])
+        except ValueError:
+            pass
 
     pass_num = 1
     while True:
@@ -1064,6 +1129,27 @@ def fill_streaks_flow(repo, me):
             break
         pass_num += 1
         console.print()
+
+    # 4. Offer to save config
+    console.print()
+    do_save = questionary.confirm(
+        "Save these settings for next time?",
+        default=True,
+        style=Q_STYLE,
+        auto_enter=False,
+    ).ask()
+    if do_save:
+        new_cfg = {
+            "repo":      repo,
+            "fill_mode": fill_mode,
+            "from_date": str(from_date),
+        }
+        if fill_mode == "threshold":
+            new_cfg["username"]  = username
+            new_cfg["token"]     = token
+            new_cfg["threshold"] = threshold
+            new_cfg["pct"]       = pct
+        save_streak_config(new_cfg)
 
 
 # ── UI helpers ────────────────────────────────────────────────────────────────

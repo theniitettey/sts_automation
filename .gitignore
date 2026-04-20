@@ -1,2 +1,10 @@
 CLAUDE.md
 .claude/
+
+# runtime / generated
+*.json
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.log
