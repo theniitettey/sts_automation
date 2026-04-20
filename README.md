@@ -21,6 +21,7 @@ Streamline your academic tasks with our comprehensive automation suite. This too
 - **Automated Exam Check-ins** - Seamlessly register for all your exams
 - **DCIT Survey Automation** - Quick and accurate survey completion
 - **Smart Response Generation** - Thoughtful, varied feedback for evaluations
+- **Git Contributor Rewriter** - Erase, normalize, or replace contributor identities in git history, and fill missing GitHub contribution days
 
 ## 📋 Quick Start Guides
 
@@ -61,6 +62,55 @@ Streamline your academic tasks with our comprehensive automation suite. This too
 4. Follow the prompts to enter:
    - Team member IDs (yours last)
    - Score allocation preferences
+
+### Git Contributor Rewriter
+
+`git_rewrite_contributors.py` is an interactive TUI for rewriting git history — removing contributors, merging duplicate identities, or filling missing GitHub contribution days with backdated commits.
+
+#### Prerequisites
+
+```bash
+pip install rich questionary requests git-filter-repo
+```
+
+> **Windows:** ensure your Python `Scripts/` folder is on `PATH` so `git-filter-repo` is discoverable.
+
+#### Usage
+
+```bash
+python git_rewrite_contributors.py                    # fully interactive
+python git_rewrite_contributors.py <path/to/repo>     # skip repo path prompt
+python git_rewrite_contributors.py --replace-zero-with-me   # replace trailer-only contributors with your identity
+python git_rewrite_contributors.py --normalize-me            # consolidate your own duplicate aliases
+python git_rewrite_contributors.py --fill-streaks            # fill missing GitHub contribution days
+```
+
+#### What each action does
+
+| Action | Description |
+|--------|-------------|
+| **Erase contributor** | Drops commits where the target is sole author/committer; strips their identity from co-authored commits and all `*-by` trailers |
+| **Normalize to my identity** | Rewrites a selected contributor's author, committer, and trailer entries to match your own identity |
+| **Replace zero-commit authors** | Finds contributors who only appear in `Co-authored-by` trailers (no direct commits) and replaces them with you |
+| **Consolidate my duplicates** | Detects aliases of your own identity across history and normalizes everything to one name/email |
+| **Fill contribution streaks** | Reads your GitHub contribution calendar via the GraphQL API, identifies missing days, and creates backdated empty commits to fill gaps |
+
+#### Fill streaks setup
+
+The `--fill-streaks` action requires a GitHub personal access token with the `read:user` scope. You will be prompted for it interactively — it is never stored.
+
+#### ⚠️ Warning
+
+All history-rewrite operations are **destructive and irreversible**. After running, verify with `git log --all --oneline` then force-push:
+
+```bash
+git push --force --all
+git push --force --tags
+```
+
+All collaborators will need to re-clone after a force-push.
+
+---
 
 ## 🤝 Contributing
 
