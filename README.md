@@ -110,6 +110,17 @@ git push --force --tags
 
 All collaborators will need to re-clone after a force-push.
 
+#### 📜 Disclaimer
+
+This tool is provided for legitimate use cases such as correcting mistaken identities, removing accidentally committed personal data, or consolidating your own duplicate profiles.
+
+**Misuse of this tool may have consequences:**
+- **Erasing contributors** from a shared or open-source project removes their attribution, which may violate open-source licenses (MIT, GPL, etc.) that require preservation of copyright notices.
+- **Backdating commits** to artificially inflate a GitHub contribution graph is deceptive if used to misrepresent your activity to employers, academic institutions, or on a resume.
+- **Force-pushing rewritten history** to a shared repository without team consent can destroy collaborators' work.
+
+The authors of this project accept no liability for misuse. Use responsibly and only on repositories you own or have explicit permission to rewrite.
+
 ---
 
 ## 🤝 Contributing
