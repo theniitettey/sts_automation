@@ -816,34 +816,51 @@ def create_backdated_commits(repo, dates, messages, me):
     return created, failed
 
 
-def _execute_fill(repo, username, token, from_date, to_date, pct, commit_messages, me):
+def _execute_fill(repo, username, token, from_date, to_date, pct, commit_messages, me, threshold=None):
     """
-    Core fill logic for one date range: fetch calendar, find gaps, confirm, create commits.
+    Core fill logic for one date range.
+    - username/token=None (range mode): backdate every day in the range, no GitHub check.
+    - username/token set (threshold mode): fetch GitHub calendar, fill days with <= threshold contributions.
     Returns True if commits were created.
     """
     today = datetime.date.today()
+    effective_to = min(to_date, today)
+    total_days = (effective_to - from_date).days + 1
 
-    with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
-                  console=console, transient=True) as p:
-        p.add_task("Fetching GitHub contribution calendar…", total=None)
-        contributions = fetch_github_contributions(username, token, from_date, to_date)
+    console.print(f"[dim]Window :[/] {from_date} → {effective_to} ({total_days} days)")
 
-    total_days   = (min(to_date, today) - from_date).days + 1
-    days_with    = sum(1 for d, c in contributions.items()
-                       if c > 0 and from_date <= datetime.date.fromisoformat(d) <= min(to_date, today))
-    missing_days = find_missing_days(contributions, from_date, to_date)
+    if username and token:
+        with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
+                      console=console, transient=True) as p:
+            p.add_task("Fetching GitHub contribution calendar…", total=None)
+            contributions = fetch_github_contributions(username, token, from_date, to_date)
 
-    console.print(f"[dim]Window    :[/] {from_date} → {min(to_date, today)} ({total_days} days)")
-    console.print(f"[dim]Active    :[/] [green]{days_with}[/] day(s) with contributions")
-    console.print(f"[dim]Needs fill:[/] [red]{len(missing_days)}[/] day(s) with 0 or 1 contribution(s)\n")
+        days_with    = sum(1 for d, c in contributions.items()
+                           if c > 0 and from_date <= datetime.date.fromisoformat(d) <= effective_to)
+        missing_days = find_missing_days(contributions, from_date, to_date, max_count=threshold)
 
-    if not missing_days:
-        console.print("[bold green]✓  No missing days in this range — streak intact![/]")
-        return False
+        console.print(f"[dim]Active :[/] [green]{days_with}[/] day(s) with contributions")
+        console.print(f"[dim]Gaps   :[/] [red]{len(missing_days)}[/] day(s) with ≤{threshold} contribution(s)\n")
 
-    to_fill = select_days_to_fill(missing_days, pct)
+        if not missing_days:
+            console.print("[bold green]✓  No missing days in this range — streak intact![/]")
+            return False
 
-    show_contribution_summary(contributions, missing_days, to_fill)
+        to_fill = select_days_to_fill(missing_days, pct)
+        show_contribution_summary(contributions, missing_days, to_fill)
+    else:
+        current = from_date
+        to_fill = []
+        while current <= effective_to:
+            to_fill.append(current)
+            current += datetime.timedelta(days=1)
+
+        console.print(f"[dim]Mode   :[/] [yellow]Range — all {len(to_fill)} day(s) will be backdated[/]\n")
+
+        if not to_fill:
+            console.print("[dim]No days in range.[/]")
+            return False
+
     console.print()
 
     preview_limit = 15
@@ -911,31 +928,78 @@ def _prompt_date(label, default):
 
 
 def fill_streaks_flow(repo, me):
-    """Interactive flow: fetch GitHub calendar → pick % of missing days → create commits.
+    """Interactive flow: fill days by date range or by GitHub calendar threshold.
     After each pass, offers to run another pass for a different date range."""
     console.print(Panel(
         "[bold]Fill Missing GitHub Contribution Days[/]\n\n"
-        "[dim]Reads your GitHub contribution calendar and creates backdated\n"
-        "commits on missing days to restore your streak.[/]",
+        "[dim]Choose how to select which days to backfill:[/]\n"
+        "  [cyan]range[/]     — fill every day between two dates\n"
+        "  [cyan]threshold[/] — check your GitHub calendar and fill days below a commit count",
         style="cyan",
         box=box.ROUNDED,
         padding=(1, 3),
     ))
     console.print()
 
-    # 1. GitHub credentials
-    username = questionary.text("GitHub username:", style=Q_STYLE).ask()
-    if not username:
+    # 1. Fill mode
+    fill_mode = questionary.select(
+        "Fill strategy:",
+        choices=[
+            questionary.Choice("Range — backdate a commit on every day between two dates", value="range"),
+            questionary.Choice("Threshold — fill days below a contribution count (uses GitHub calendar)", value="threshold"),
+        ],
+        style=Q_STYLE,
+    ).ask()
+    if fill_mode is None:
         console.print("[dim]Aborted.[/]")
         return
 
-    token = questionary.password(
-        "GitHub personal access token (needs 'read:user' scope):",
-        style=Q_STYLE,
-    ).ask()
-    if not token:
-        console.print("[dim]Aborted.[/]")
-        return
+    username  = None
+    token     = None
+    threshold = None
+    pct       = 100
+
+    if fill_mode == "threshold":
+        username = questionary.text("GitHub username:", style=Q_STYLE).ask()
+        if not username:
+            console.print("[dim]Aborted.[/]")
+            return
+
+        token = questionary.password(
+            "GitHub personal access token (needs 'read:user' scope):",
+            style=Q_STYLE,
+        ).ask()
+        if not token:
+            console.print("[dim]Aborted.[/]")
+            return
+
+        def validate_threshold(v):
+            return True if v.isdigit() and int(v) >= 0 else "Enter a whole number ≥ 0"
+
+        threshold_str = questionary.text(
+            "Fill days with how many contributions or fewer? (0 = only empty, 1 = empty + single-commit, etc.):",
+            default="1",
+            validate=validate_threshold,
+            style=Q_STYLE,
+        ).ask()
+        if threshold_str is None:
+            console.print("[dim]Aborted.[/]")
+            return
+        threshold = int(threshold_str)
+
+        def validate_pct(v):
+            return True if v.isdigit() and 1 <= int(v) <= 100 else "Enter a whole number between 1 and 100"
+
+        pct_str = questionary.text(
+            "Percentage of qualifying days to fill (1–100):",
+            default="100",
+            validate=validate_pct,
+            style=Q_STYLE,
+        ).ask()
+        if not pct_str:
+            console.print("[dim]Aborted.[/]")
+            return
+        pct = int(pct_str)
 
     # 2. Collect commit messages once — reused across all passes
     with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
@@ -948,22 +1012,7 @@ def fill_streaks_flow(repo, me):
 
     console.print(f"[dim]Message pool:[/] [cyan]{len(commit_messages)}[/] unique subject(s) from repo history\n")
 
-    # 3. Pick percentage — reused across all passes
-    def validate_pct(v):
-        return True if v.isdigit() and 1 <= int(v) <= 100 else "Enter a whole number between 1 and 100"
-
-    pct_str = questionary.text(
-        "Percentage of missing days to fill (1–100):",
-        default="100",
-        validate=validate_pct,
-        style=Q_STYLE,
-    ).ask()
-    if not pct_str:
-        console.print("[dim]Aborted.[/]")
-        return
-    pct = int(pct_str)
-
-    # 4. Determine default window
+    # 3. Determine default window
     today = datetime.date.today()
     first_date, last_date = get_repo_date_range(repo)
     default_from = today - datetime.timedelta(days=364)
@@ -1001,7 +1050,7 @@ def fill_streaks_flow(repo, me):
                 console.print("[red]✗ From-date must be before to-date.[/]")
                 return
 
-        _execute_fill(repo, username, token, from_date, to_date, pct, commit_messages, me)
+        _execute_fill(repo, username, token, from_date, to_date, pct, commit_messages, me, threshold)
 
         # Offer another pass
         console.print()
