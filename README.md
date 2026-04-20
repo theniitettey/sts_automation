@@ -1,133 +1,135 @@
 <div align="center">
+
   <h1>STS Automation Suite</h1>
-  <h3>
-    <span style="background: linear-gradient(45deg, #FF6B6B, #4ECDC4); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-      A BBF Labs Initiative
-    </span>
-  </h3>
+  <h3>A <strong>BetaForge Labs</strong> Initiative</h3>
   <p><em>Think • Build • Deploy</em></p>
 
   [![MIT License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
   [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md)
+
 </div>
 
-## 🚀 Overview
+---
 
-Streamline your academic tasks with our comprehensive automation suite. This tool helps you efficiently manage course evaluations, exam check-ins, and DCIT surveys - saving you valuable time while ensuring accurate submissions.
+## Overview
 
-## 🎯 Features
+STS Automation Suite is a collection of browser console scripts and developer utilities that automate repetitive academic tasks — course evaluations, exam check-ins, peer contribution surveys, and more. Built and maintained by **BF Labs**.
 
-- **Course Evaluation Automation** - Evaluate multiple courses efficiently
-- **Automated Exam Check-ins** - Seamlessly register for all your exams
-- **DCIT Survey Automation** - Quick and accurate survey completion
-- **Smart Response Generation** - Thoughtful, varied feedback for evaluations
-- **Git Contributor Rewriter** - Erase, normalize, or replace contributor identities in git history, and fill missing GitHub contribution days
+---
 
-## 📋 Quick Start Guides
+## Features
 
-### Course Evaluation Automation
+| Tool | Description |
+|------|-------------|
+| **Course Evaluation** | Auto-fills all radio buttons and generates varied text responses for STS evaluations |
+| **Exam Check-in** | Clicks all check-in buttons across your exam list with safe delays |
+| **DCIT Survey** | Fills peer contribution forms with team IDs and scores, persisted via `localStorage` |
+| **Git Contributor Rewriter** | Interactive TUI to erase, normalize, or replace contributor identities in git history — and fill missing GitHub contribution days |
 
-1. Copy the code from `sts.js`
-2. Navigate to STS and select your course
-3. **Important:** Select the lecturer to evaluate
-4. Open developer tools (F12) and switch to console
-5. Enable pasting:
-   ```
-   allow pasting
-   ```
-6. Paste the code and press Enter
+---
 
-### Exam Check-in Automation
+## Quick Start
 
-⚠️ **Prerequisites:** Ensure all course evaluations are completed first
+### Course Evaluation — `sts.js`
 
-1. Open developer tools console (F12)
-2. Enable pasting:
-   ```
-   allow pasting
-   ```
-3. Copy and paste code from `checkInToAllExams.js`
-4. Execute the script
+1. Navigate to STS and select your course
+2. **Select the lecturer** to evaluate
+3. Open DevTools (`F12`) → Console
+4. Type `allow pasting` and press Enter
+5. Paste the contents of `sts.js` and press Enter
 
-### DCIT Survey Automation
+### Exam Check-in — `checkInToAllExams.js`
 
-⚠️ **Prerequisites:** Select your student type and group number first
+> **Prerequisite:** Complete all course evaluations first.
 
-1. Open developer tools console (F12)
-2. Enable pasting:
-   ```
-   allow pasting
-   ```
-3. Copy and paste code from `surveyAutomation.js`
-4. Follow the prompts to enter:
-   - Team member IDs (yours last)
-   - Score allocation preferences
+1. Open DevTools (`F12`) → Console
+2. Type `allow pasting` and press Enter
+3. Paste the contents of `checkInToAllExams.js` and press Enter
 
-### Git Contributor Rewriter
+### DCIT Peer Survey — `surveyAutomation.js` / `surveyAutomation2025.js`
 
-`git_rewrite_contributors.py` is an interactive TUI for rewriting git history — removing contributors, merging duplicate identities, or filling missing GitHub contribution days with backdated commits.
+> **Prerequisite:** Select your student type and group number before running.
 
-#### Prerequisites
+1. Open DevTools (`F12`) → Console
+2. Type `allow pasting` and press Enter
+3. Paste the contents of the relevant survey script and press Enter
+4. Follow the prompts to enter team member IDs (yours last) and score allocations
+
+> Your inputs are saved to `localStorage` — re-running on the same browser session skips the prompts.
+
+---
+
+## Git Contributor Rewriter — `git_rewrite_contributors.py`
+
+An interactive TUI for managing contributor identities in git history, built on `git-filter-repo`.
+
+### Prerequisites
 
 ```bash
 pip install rich questionary requests git-filter-repo
 ```
 
-> **Windows:** ensure your Python `Scripts/` folder is on `PATH` so `git-filter-repo` is discoverable.
+> **Windows users:** ensure your Python `Scripts/` folder is on `PATH` so `git-filter-repo` is discoverable.
 
-#### Usage
+### Usage
 
 ```bash
-python git_rewrite_contributors.py                    # fully interactive
-python git_rewrite_contributors.py <path/to/repo>     # skip repo path prompt
+# Fully interactive — walks you through everything
+python git_rewrite_contributors.py
+
+# Pass a repo path directly to skip the prompt
+python git_rewrite_contributors.py <path/to/repo>
+
+# Non-interactive flags
 python git_rewrite_contributors.py --replace-zero-with-me   # replace trailer-only contributors with your identity
-python git_rewrite_contributors.py --normalize-me            # consolidate your own duplicate aliases
-python git_rewrite_contributors.py --fill-streaks            # fill missing GitHub contribution days
+python git_rewrite_contributors.py --normalize-me            # consolidate your own duplicate aliases into one identity
+python git_rewrite_contributors.py --fill-streaks            # fill missing GitHub contribution days with backdated commits
 ```
 
-#### What each action does
+### Actions
 
-| Action | Description |
-|--------|-------------|
-| **Erase contributor** | Drops commits where the target is sole author/committer; strips their identity from co-authored commits and all `*-by` trailers |
-| **Normalize to my identity** | Rewrites a selected contributor's author, committer, and trailer entries to match your own identity |
-| **Replace zero-commit authors** | Finds contributors who only appear in `Co-authored-by` trailers (no direct commits) and replaces them with you |
-| **Consolidate my duplicates** | Detects aliases of your own identity across history and normalizes everything to one name/email |
-| **Fill contribution streaks** | Reads your GitHub contribution calendar via the GraphQL API, identifies missing days, and creates backdated empty commits to fill gaps |
+| Action | What it does |
+|--------|--------------|
+| **Erase contributor** | Drops commits where the target is the sole author/committer; strips their identity from co-authored commits and all `*-by` trailers |
+| **Normalize to my identity** | Rewrites a selected contributor's author, committer, and trailer entries to match your identity |
+| **Replace zero-commit authors** | Finds contributors who only appear in `Co-authored-by` trailers and replaces them with you |
+| **Consolidate my duplicates** | Detects your own aliases across history and normalizes everything to one name and email |
+| **Fill contribution streaks** | Reads your GitHub contribution calendar, finds missing days, and creates backdated empty commits to fill gaps |
 
-#### Fill streaks setup
+### Fill Streaks — GitHub Token
 
-The `--fill-streaks` action requires a GitHub personal access token with the `read:user` scope. You will be prompted for it interactively — it is never stored.
+The `--fill-streaks` action requires a GitHub personal access token with the `read:user` scope. You will be prompted for it interactively — it is never stored to disk.
 
-#### ⚠️ Warning
+### Warning
 
-All history-rewrite operations are **destructive and irreversible**. After running, verify with `git log --all --oneline` then force-push:
+All history-rewrite operations are **destructive and irreversible**. After running, verify the result before publishing:
 
 ```bash
+git log --all --oneline        # verify history looks correct
 git push --force --all
 git push --force --tags
 ```
 
-All collaborators will need to re-clone after a force-push.
+> All collaborators must re-clone after a force-push — their local history will have diverged.
 
-#### 📜 Disclaimer
+### Disclaimer
 
-This tool is provided for legitimate use cases such as correcting mistaken identities, removing accidentally committed personal data, or consolidating your own duplicate profiles.
+This tool is intended for legitimate use cases: correcting mistaken identities, removing accidentally committed personal data, or consolidating your own duplicate profiles.
 
-**Misuse of this tool may have consequences:**
-- **Erasing contributors** from a shared or open-source project removes their attribution, which may violate open-source licenses (MIT, GPL, etc.) that require preservation of copyright notices.
-- **Backdating commits** to artificially inflate a GitHub contribution graph is deceptive if used to misrepresent your activity to employers, academic institutions, or on a resume.
-- **Force-pushing rewritten history** to a shared repository without team consent can destroy collaborators' work.
+**Misuse carries consequences:**
+- Erasing contributors from a shared or open-source project removes their attribution and may violate licenses (MIT, GPL, etc.) that require preserving copyright notices.
+- Backdating commits to inflate a GitHub contribution graph is deceptive when used to misrepresent activity to employers or academic institutions.
+- Force-pushing rewritten history to a shared repository without team consent can destroy collaborators' work.
 
-The authors of this project accept no liability for misuse. Use responsibly and only on repositories you own or have explicit permission to rewrite.
+**BetaForge Labs and the authors of this project accept no liability for misuse. Use responsibly, and only on repositories you own or have explicit permission to rewrite.**
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-We believe in the power of community collaboration! Your contributions can help make this tool even better.
+We believe in the power of community. Your contributions make this suite better for everyone.
 
-### Our Amazing Contributors
+### Contributors
 
 <table>
   <tr>
@@ -154,32 +156,22 @@ We believe in the power of community collaboration! Your contributions can help 
 
 ### How to Contribute
 
-We welcome all contributions, big or small! Here's how to get started:
+1. Fork the repository
+2. Create your feature branch: `git checkout -b feature/your-feature`
+3. Commit your changes: `git commit -m 'Add: your feature'`
+4. Push to your branch: `git push origin feature/your-feature`
+5. Open a Pull Request
 
-1. 🍴 Fork the repository
-2. 🌿 Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. 💻 Make your changes
-4. 📝 Commit with clear messages (`git commit -m 'Add: Amazing Feature'`)
-5. 🚀 Push to your branch (`git push origin feature/AmazingFeature`)
-6. 🔄 Open a Pull Request
+For major changes, open an issue first to discuss your proposal.
 
-For major changes, please open an issue first to discuss what you'd like to change.
+---
 
-## ⚠️ Important Notes
+## License
 
-- Review generated responses before submission
-- Use responsibly and in accordance with institutional policies
-- Report issues or suggest improvements via GitHub issues
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 ---
 
 <div align="center">
-  <h3>🎉 Ready to Automate?</h3>
-  <p>Start saving time and reducing manual work today!</p>
-  
-  [![Get Started](https://img.shields.io/badge/Get%20Started-4ECDC4?style=for-the-badge)](docs/getting-started.md)
+  <p>Built with care by <strong>BetaForge Labs</strong> &nbsp;·&nbsp; Think • Build • Deploy</p>
 </div>
